@@ -1,0 +1,335 @@
+import kivy
+from kivy.app import App
+from kivy.uix.widget import Widget
+from kivy.properties import ObjectProperty
+import time
+from kivy.uix.image import Image
+from kivy.clock import Clock
+import serial
+from kivy.properties import NumericProperty
+from kivy.lang import Builder
+
+try:
+    ser = serial.Serial('/dev/ttyACM1', 9600)
+except FileNotFoundError:
+    ser = serial.Serial('/dev/ttyACM0', 9600)
+
+oldNum = 1
+global cv
+cv = 0
+
+
+class Background(Widget):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # create texture
+        self.tribe_texture = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/EN_active.png").texture
+        print("pierwsze wyswietlenie")
+
+
+class Tribe(Widget):
+    tribe_textureN = ObjectProperty(None)
+    tribe_textureD = ObjectProperty(None)
+    tribe_textureR = ObjectProperty(None)
+    speed_texture1 = ObjectProperty(None)
+    speed_texture10 = ObjectProperty(None)
+    turn_left = ObjectProperty(None)
+    turn_right = ObjectProperty(None)
+    light_day = ObjectProperty(None)
+    battery_lvl = ObjectProperty(None)
+    distance1 = ObjectProperty(None)
+    distance10 = ObjectProperty(None)
+    distance100 = ObjectProperty(None)
+    angle = NumericProperty(0)
+    global cv
+
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # create texture INICJALIZACJA
+        self.tribe_textureN = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/EN_active.png").texture #TRYBY JAZDY
+        self.tribe_textureD = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/empty_tribe.jpg").texture #TRYBY JAZDY
+        self.tribe_textureR = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/empty_tribe.jpg").texture #TRYBY JAZDY
+        self.speed_texture1 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/speed_0.png").texture #PREDKOSC WARTOSC JEDNOSCI
+        self.angle = 0
+        self.speed_texture10 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/speed_0.png").texture #PREDKOSC WARTOSC DZIESIĄTEK
+        self.turn_left = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/empty_turn_left.jpg").texture #KIERUNKOWSKAZ LEWY
+        self.turn_right = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/empty_turn_right.jpg").texture #KIERUNKOWSKAZ PRAWY
+        self.light_day = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/empty_lights.jpg").texture #ŚWIATŁA
+        self.battery_lvl = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/empty_battery.jpg").texture  #BATERIA
+        self.distance1 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/empty_distance.jpg").texture  #DYSTANS JEDNOSCI
+        self.distance10 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/empty_distance.jpg").texture  #DYSTANS DZIESIATKI
+        self.distance100 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/empty_distance.jpg").texture  #DYSTANS SETKI
+
+    def zmien_tryb(self, time_passed):
+        licznik = 1
+        oldNum = 0
+        num = 0
+        flaga1 = 0
+        katOtrzymany = 0
+        global cv
+
+## cześć dotycząca obrabiania danych z uart
+        if (ser.in_waiting > 0):
+            line = ser.readline()
+            a_string = line.decode("utf-8")  ##zmiana typu z bytes na string
+            for i in a_string:
+                if (i == '\r' or i == '\n' or i == '\r\n' or i == ' '):  ##omijam znaki nowej lini
+                    continue
+                num = int(a_string.rstrip())  ## ucinam spacje i zmieniam na int
+            if (oldNum != num):  ##jezli sie cos zmienilo
+                print(num)
+                oldNum = num ## num to jest końcowa wartosc otrzymana z uart
+## CZĘŚĆ DOTYCZĄCA RYSOWANIA NA WYSWIETLACZU - REAGOWANIE NA OTRZYMANE WIADOMOSCI
+    ## ZMIANA TRYBÓW JAZDY
+            if num == 401: #TRYB D
+                self.tribe_textureD = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/D_active.png").texture
+                self.tribe_textureN = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/empty_tribe.jpg").texture
+                self.tribe_textureR = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/empty_tribe.jpg").texture
+            elif num == 411: #TRYB N
+                self.tribe_textureN = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/EN_active.png").texture
+                self.tribe_textureD = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/empty_tribe.jpg").texture
+                self.tribe_textureR = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/empty_tribe.jpg").texture
+            elif num == 410: #TRYB R
+                self.tribe_textureR = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/R_active.png").texture
+                self.tribe_textureN = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/empty_tribe.jpg").texture
+                self.tribe_textureD = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/empty_tribe.jpg").texture
+    ##ZMIANA PRĘDKOSCI
+        #WARTOSCI OD 0 DO 10 KM /H
+            if num >=200 and num <= 209:
+                self.speed_texture10 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/speed_0.png").texture
+                self.angle = cv
+                if num == 200:
+                    self.speed_texture1 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/speed_0.png").texture
+                    self.angle = cv
+                elif num == 201:
+                    self.speed_texture1 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/speed_1.png").texture
+                    self.angle = cv
+                elif num == 202:
+                    self.speed_texture1 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/speed_2.png").texture
+                    self.angle = cv
+                elif num == 203:
+                    self.speed_texture1 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/speed_3.png").texture
+                    self.angle = cv
+                elif num == 204:
+                    self.speed_texture1 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/speed_4.png").texture
+                    self.angle = cv
+                elif num == 205:
+                    self.speed_texture1 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/speed_5.png").texture
+                    self.angle = cv
+                elif num == 206:
+                    self.speed_texture1 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/speed_6.png").texture
+                    self.angle = cv
+                elif num == 207:
+                    self.speed_texture1 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/speed_7.png").texture
+                    self.angle = cv
+                elif num == 208:
+                    self.speed_texture1 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/speed_8.png").texture
+                    self.angle = cv
+                elif num == 209:
+                    self.speed_texture1 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/speed_9.png").texture
+                    self.angle = cv
+        #WARTOSCI OD 10 DO 99 KM/H
+            elif num >= 210 and num <= 299:
+                predkosc = num - 200
+                if predkosc >= 90:
+                    self.speed_texture10 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/speed_9.png").texture
+                    self.angle = cv
+                elif predkosc >= 80:
+                    self.speed_texture10 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/speed_8.png").texture
+                    self.angle = cv
+                elif predkosc >= 70:
+                    self.speed_texture10 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/speed_7.png").texture
+                    self.angle = cv
+                elif predkosc >= 60:
+                    self.speed_texture10 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/speed_6.png").texture
+                    self.angle = cv
+                elif predkosc >= 50:
+                    self.speed_texture10 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/speed_5.png").texture
+                    self.angle = cv
+                elif predkosc >= 40:
+                    self.speed_texture10 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/speed_4.png").texture
+                    self.angle = cv
+                elif predkosc >= 30:
+                    self.speed_texture10 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/speed_3.png").texture
+                    self.angle = cv
+                elif predkosc >= 20:
+                    self.speed_texture10 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/speed_2.png").texture
+                    self.angle = cv
+                elif predkosc >= 10:
+                    self.speed_texture10 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/speed_1.png").texture
+                    self.angle = cv
+            #JEDNOSCI DLA WARTOSCI OD 10 DO 99 KM/H
+                jednosci = predkosc % 10
+                if jednosci == 0:
+                    self.speed_texture1 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/speed_0.png").texture
+                    self.angle = cv
+                elif jednosci == 1:
+                    self.speed_texture1 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/speed_1.png").texture
+                    self.angle = cv
+                elif jednosci == 2:
+                    self.speed_texture1 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/speed_2.png").texture
+                    self.angle = cv
+                elif jednosci == 3:
+                    self.speed_texture1 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/speed_3.png").texture
+                    self.angle = cv
+                elif jednosci == 4:
+                    self.speed_texture1 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/speed_4.png").texture
+                    self.angle = cv
+                elif jednosci == 5:
+                    self.speed_texture1 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/speed_5.png").texture
+                    self.angle = cv
+                elif jednosci == 6:
+                    self.speed_texture1 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/speed_6.png").texture
+                    self.angle = cv
+                elif jednosci == 7:
+                    self.speed_texture1 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/speed_7.png").texture
+                    self.angle = cv
+                elif jednosci == 8:
+                    self.speed_texture1 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/speed_8.png").texture
+                    self.angle = cv
+                elif jednosci == 9:
+                    self.speed_texture1 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/speed_9.png").texture
+                    self.angle = cv
+        #KIERUNKOWSKAZY
+            elif num == 51: #prawy kierunkowskaz on
+                self.turn_right = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/kturn_right.png").texture
+            elif num == 50: #prawy kierunkowskaz off
+                self.turn_right = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/empty_turn_right.jpg").texture
+            elif num == 61: # lewy kierunkowskaz on
+                self.turn_left = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/kturn_left.png").texture
+            elif num == 60: #lewy kierunkowskaz off
+                self.turn_left = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/empty_turn_left.jpg").texture
+        #ŚWIATŁA
+            elif num == 71: #włącz światła
+                self.light_day = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/lights.png").texture
+            elif num == 70: #wyłącz światła
+                self.light_day = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/empty_lights.jpg").texture
+        #BATERIA
+            elif num >= 300 and num <= 399:
+                if num >= 392:
+                    self.battery_lvl = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/pbattery_7.png").texture
+                elif num >= 385:
+                    self.battery_lvl = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/pbattery_6half.png").texture
+                elif num >= 378:
+                    self.battery_lvl = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/pbattery_6.png").texture
+                elif num >= 371:
+                    self.battery_lvl = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/pbattery_5half.png").texture
+                elif num >= 364:
+                    self.battery_lvl = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/pbattery_5.png").texture
+                elif num >= 357:
+                    self.battery_lvl = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/pbattery_4half.png").texture
+                elif num >= 350:
+                    self.battery_lvl = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/pbattery_4.png").texture
+                elif num >= 343:
+                    self.battery_lvl = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/pbattery_3half.png").texture
+                elif num >= 336:
+                    self.battery_lvl = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/pbattery_3.png").texture
+                elif num >= 329:
+                    self.battery_lvl = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/pbattery_2half.png").texture
+                elif num >= 322:
+                    self.battery_lvl = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/pbattery_2.png").texture
+                elif num >= 315:
+                    self.battery_lvl = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/pbattery_1half.png").texture
+                else:
+                    self.battery_lvl = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/pbattery_1.png").texture
+        #PRZEBYTY DYSTANS
+            elif num >=8000 and num <= 8999:
+            #SETKI
+                    setki = num-8000
+                    if setki >= 900:
+                        self.distance100 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/distance_9.png").texture  # DYSTANS SETKI
+                    elif setki >= 800:
+                        self.distance100 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/distance_8.png").texture  # DYSTANS SETKI
+                    elif setki >= 700:
+                        self.distance100 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/distance_7.png").texture  # DYSTANS SETKI
+                    elif setki >= 600:
+                        self.distance100 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/distance_6.png").texture  # DYSTANS SETKI
+                    elif setki >= 500:
+                        self.distance100 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/distance_5.png").texture  # DYSTANS SETKI
+                    elif setki >= 400:
+                        self.distance100 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/distance_4.png").texture  # DYSTANS SETKI
+                    elif setki >= 300:
+                        self.distance100 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/distance_3.png").texture  # DYSTANS SETK
+                    elif setki >= 200:
+                        self.distance100 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/distance_2.png").texture  # DYSTANS SETKI
+                    elif setki >= 100:
+                        self.distance100 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/distance_1.png").texture  # DYSTANS SETKI
+                    else:
+                        self.distance100 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/speed_0.png").texture  # DYSTANS SETKI
+                    dziesiatki = setki % 100
+                    if dziesiatki >= 90:
+                        self.distance10 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/distance_9.png").texture  # DYSTANS dziesiatki
+                    elif dziesiatki >= 80:
+                        self.distance10 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/distance_8.png").texture  # DYSTANS dziesiatki
+                    elif dziesiatki >= 70:
+                        self.distance10 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/distance_7.png").texture  # DYSTANS dziesiatki
+                    elif dziesiatki >= 60:
+                        self.distance10 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/distance_6.png").texture  # DYSTANS dziesiatki
+                    elif dziesiatki >= 50:
+                        self.distance10 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/distance_5.png").texture  # DYSTANS dziesiatki
+                    elif dziesiatki >= 40:
+                        self.distance10 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/distance_4.png").texture  # DYSTANS dziesiatki
+                    elif dziesiatki >= 30:
+                        self.distance10 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/distance_3.png").texture  # DYSTANS dziesiatki
+                    elif dziesiatki >= 20:
+                        self.distance10 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/distance_2.png").texture  # DYSTANS dziesiatki
+                    elif dziesiatki >= 10:
+                        self.distance10 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/distance_1.png").texture  # DYSTANS dziesiatki
+                    else:
+                        self.distance10 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/speed_0.png").texture  # DYSTANS dziesiatki
+                    jedn = dziesiatki % 10
+                    if jedn == 9:
+                        self.distance1 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/distance_9.png").texture  # DYSTANS jedn
+                    elif jedn == 8:
+                        self.distance1 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/distance_8.png").texture  # DYSTANS jedn
+                    elif jedn == 7:
+                        self.distance1 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/distance_7.png").texture  # DYSTANS jedn
+                    elif jedn == 6:
+                        self.distance1 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/distance_6.png").texture  # DYSTANS jedn
+                    elif jedn == 5:
+                        self.distance1 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/distance_5.png").texture  # DYSTANS jedn
+                    elif jedn == 4:
+                        self.distance1 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/distance_4.png").texture  # DYSTANS jedn
+                    elif jedn == 3:
+                        self.distance1 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/distance_3.png").texture  # DYSTANS jedn
+                    elif jedn == 2:
+                        self.distance1 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/distance_2.png").texture  # DYSTANS jedn
+                    elif jedn == 1:
+                        self.distance1 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/distance_1.png").texture  # DYSTANS jedn
+                    else:
+                        self.distance1 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/speed_0.png").texture  # DYSTANS jedn
+        #KĄT OBROTU
+            elif num >= 1000 and num <= 1360:
+                katOtrzymany = num - 1000
+                cv = katOtrzymany
+        #RESET PARAMETRÓW
+            elif num == 90:
+                self.tribe_textureN = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/EN_active.png").texture  # TRYBY JAZDY
+                self.tribe_textureD = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/empty_tribe.jpg").texture  # TRYBY JAZDY
+                self.tribe_textureR = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/empty_tribe.jpg").texture  # TRYBY JAZDY
+                self.speed_texture1 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/speed_0.png").texture  # PREDKOSC WARTOSC JEDNOSCI
+                self.speed_texture10 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/speed_0.png").texture  # PREDKOSC WARTOSC DZIESIĄTEK
+                self.turn_left = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/empty_turn_left.jpg").texture  # KIERUNKOWSKAZ LEWY
+                self.turn_right = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/empty_turn_right.jpg").texture  # KIERUNKOWSKAZ PRAWY
+                self.light_day = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/empty_lights.jpg").texture  # ŚWIATŁA
+                self.battery_lvl = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/empty_battery.jpg").texture  # BATERIA
+                self.distance1 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/empty_distance.jpg").texture  # DYSTANS JEDNOSCI
+                self.distance10 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/empty_distance.jpg").texture  # DYSTANS DZIESIATKI
+                self.distance100 = Image(source="/home/pi/Documents/kivv/wyswietlacz_samochodowy-main/png/empty_distance.jpg").texture  # DYSTANS SETKI
+                cv = 0
+        #NIEPRAWIDŁOWA WIADOMOŚĆ
+            else:
+                pass
+
+class MainApp(App):
+    def on_start(self):
+        Clock.schedule_interval(self.root.ids.tribe.zmien_tryb, 1 / 200)
+#        Clock.schedule_interval(self.root.ids.speed.zmien_predkosc, 1 / 10)
+        pass
+
+    pass
+
+
+if __name__ == "__main__":
+    MainApp().run()
