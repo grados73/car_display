@@ -1,0 +1,75 @@
+void setup() {
+  // put your setup code here, to run once:
+  Serial.begin(9600);
+
+  int z = 0;
+
+}
+
+void loop() {
+
+  
+  // put your main code here, to run repeatedly:
+  Serial.println("200\n"); // prędkosc = 0km/h
+  delay(500);
+  Serial.println("390\n"); // procent naladowania baterii 90%
+  delay(100);
+  //TRYBY JAZDY
+  Serial.println("401\n"); // zmiana trybu jazdy na D
+  delay(2000);
+  Serial.println("410\n"); // zmiana trybu jazdy na R
+  delay(2000);
+  Serial.println("411\n"); // zmiana trybu jazdy na N
+  delay(2000);
+  Serial.println("401\n"); // zmiana trybu jazdy na D
+  delay(1000);
+
+    // ŚWIATŁA
+  Serial.println("71\n"); // swiatła włącz
+    delay(500);
+  Serial.println("51\n"); // swiatła kierunek
+    delay(20);
+      Serial.println("61\n"); // swiatła kierunek
+    delay(2000);
+      Serial.println("50\n"); // swiatła kierunek
+    delay(20);
+      Serial.println("60\n"); // swiatła kierunek
+    delay(20);
+int z = 0;
+int x = 360;
+
+//PRĘDKOŚĆ I OBRÓT
+
+  for(int i = 0; i < 360; i = i + 5){
+    Serial.println((1000 + i));
+    delay(20);
+    if(i%3 == 0) z = i;
+      Serial.println(int(200 + z/4));
+    delay(100);
+  }
+  for(int k = 360; k >= 0; k= k-5){
+    Serial.println((1000 + k));
+    delay(20);
+    if(k%3 == 0)  x = k;  
+      Serial.println(int(200 + x/4));
+  
+    delay(100);    
+  }
+
+//BATERIA
+
+for(int c = 5; c <=99; c = c + 6){
+  Serial.println(int(300+c));
+    delay(500);
+}
+
+//DYSTANS
+for(int v = 0; v <=999; v = v + 50){
+  Serial.println(int(8000+v));
+    delay(300);
+}
+
+delay(2000);
+ Serial.println(90);
+ delay(3000);
+}
